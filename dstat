@@ -17,12 +17,8 @@
 ### Copyright 2004-2016 Dag Wieers <dag@wieers.com>
 
 
-
-try:
-    import sys, os, time, sched, re, getopt, fnmatch
-    import types, resource, getpass, glob, linecache
-except KeyboardInterrupt:
-    pass
+import sys, os, time, sched, re, getopt, fnmatch
+import resource, getpass, glob, linecache
 
 VERSION = '0.7.3'
 
@@ -685,64 +681,6 @@ class dstat_cpu_adv(dstat_cpu):
         if step == op.delay:
             self.set1.update(self.set2)
 
-class dstat_cpu24(dstat):
-    def __init__(self):
-        self.nick = ( 'usr', 'sys', 'idl')
-        self.type = 'p'
-        self.width = 3
-        self.scale = 34
-        self.open('/proc/stat')
-        self.cols = 3
-
-    def discover(self, *objlist):
-        ret = []
-        for l in self.splitlines():
-            if len(l) != 5 or l[0][0:3] != 'cpu': continue
-            ret.append(l[0][3:])
-        ret.sort()
-        for item in objlist: ret.append(item)
-        return ret
-
-    def vars(self):
-        ret = []
-        if op.cpulist and 'all' in op.cpulist:
-            varlist = []
-            cpu = 0
-            while cpu < cpunr:
-                varlist.append(str(cpu))
-                cpu = cpu + 1
-#           if len(varlist) > 2: varlist = varlist[0:2]
-        elif op.cpulist:
-            varlist = op.cpulist
-        else:
-            varlist = ('total',)
-        for name in varlist:
-            if name in self.discover + ['total']:
-                ret.append(name)
-        return ret
-
-    def name(self):
-        ret = []
-        for name in self.vars:
-            if name == 'total':
-                ret.append('cpu usage')
-            else:
-                ret.append('cpu' + name)
-        return ret
-
-    def extract(self):
-        for l in self.splitlines():
-            for name in self.vars:
-                if l[0] == 'cpu' + name or ( l[0] == 'cpu' and name == 'total' ):
-                    self.set2[name] = ( int(l[1]) + int(l[2]), int(l[3]), int(l[4]) )
-
-        for name in self.vars:
-            for i in range(self.cols):
-                self.val[name][i] = 100.0 * (self.set2[name][i] - self.set1[name][i]) / (sum(self.set2[name]) - sum(self.set1[name]))
-
-        if step == op.delay:
-            self.set1.update(self.set2)
-
 class dstat_disk(dstat):
     def __init__(self):
         self.nick = ('read', 'writ')
@@ -822,169 +760,6 @@ class dstat_disk(dstat):
                     for disk in op.diskset[diskset]:
                         if fnmatch.fnmatch(name, disk):
                             self.set2[diskset] = ( self.set2[diskset][0] + int(l[5]), self.set2[diskset][1] + int(l[9]) )
-
-        for name in self.set2:
-            self.val[name] = list(map(lambda x, y: (y - x) * 512.0 / elapsed, self.set1[name], self.set2[name]))
-
-        if step == op.delay:
-            self.set1.update(self.set2)
-
-class dstat_disk24(dstat):
-    def __init__(self):
-        self.nick = ('read', 'writ')
-        self.type = 'b'
-        self.diskfilter = re.compile('^([hsv]d[a-z]+\d+|cciss/c\d+d\d+p\d+|dm-\d+|md\d+|mmcblk\d+p\d0|VxVM\d+)$')
-        self.open('/proc/partitions')
-        if self.fd and not self.discover:
-            raise Exception('Kernel has no per-partition I/O accounting [CONFIG_BLK_STATS], use at least 2.4.20')
-        self.cols = 2
-
-    def discover(self, *objlist):
-        ret = []
-        for l in self.splitlines():
-            if len(l) < 15 or l[0] == 'major' or int(l[1]) % 16 != 0: continue
-            name = l[3]
-            ret.append(name)
-        for item in objlist: ret.append(item)
-        if not ret:
-            raise Exception("No suitable block devices found to monitor")
-        return ret
-
-    def basename(self, disk):
-        "Strip /dev/ and convert symbolic link"
-        if disk[:5] == '/dev/':
-            # file or symlink
-            if os.path.exists(disk):
-                # e.g. /dev/disk/by-uuid/15e40cc5-85de-40ea-b8fb-cb3a2eaf872
-                if os.path.islink(disk):
-                    target = os.readlink(disk)
-                    # convert relative pathname to absolute
-                    if target[0] != '/':
-                        target = os.path.join(os.path.dirname(disk), target)
-                        target = os.path.normpath(target)
-                    print('dstat: symlink %s -> %s' % (disk, target))
-                    disk = target
-                # trim leading /dev/
-                return disk[5:]
-            else:
-                print('dstat: %s does not exist' % disk)
-        else:
-            return disk
-
-    def vars(self):
-        ret = []
-        if op.disklist:
-            varlist = list(map(self.basename, op.disklist))
-        elif not op.full:
-            varlist = ('total',)
-        else:
-            varlist = []
-            for name in self.discover:
-                if self.diskfilter.match(name): continue
-                varlist.append(name)
-#           if len(varlist) > 2: varlist = varlist[0:2]
-            varlist.sort()
-        for name in varlist:
-            if name in self.discover + ['total'] or name in op.diskset:
-                ret.append(name)
-        return ret
-
-    def name(self):
-        return ['dsk/'+sysfs_dev(name) for name in self.vars]
-
-    def extract(self):
-        for name in self.vars: self.set2[name] = (0, 0)
-        for l in self.splitlines():
-            if len(l) < 15 or l[0] == 'major' or int(l[1]) % 16 != 0: continue
-            name = l[3]
-            if not self.diskfilter.match(name):
-                self.set2['total'] = ( self.set2['total'][0] + int(l[6]), self.set2['total'][1] + int(l[10]) )
-            if name in self.vars:
-                self.set2[name] = ( self.set2[name][0] + int(l[6]), self.set2[name][1] + int(l[10]) )
-            for diskset in self.vars:
-                if diskset in op.diskset:
-                    for disk in op.diskset[diskset]:
-                        if fnmatch.fnmatch(name, disk):
-                            self.set2[diskset] = ( self.set2[diskset][0] + int(l[6]), self.set2[diskset][1] + int(l[10]) )
-
-        for name in self.set2:
-            self.val[name] = list(map(lambda x, y: (y - x) * 512.0 / elapsed, self.set1[name], self.set2[name]))
-
-        if step == op.delay:
-            self.set1.update(self.set2)
-
-### FIXME: Needs rework, does anyone care ?
-class dstat_disk24_old(dstat):
-    def __init__(self):
-        self.nick = ('read', 'writ')
-        self.type = 'b'
-        self.diskfilter = re.compile('^([hsv]d[a-z]+\d+|cciss/c\d+d\d+p\d+|dm-\d+|md\d+|mmcblk\d+p\d0|VxVM\d+)$')
-        self.regexp = re.compile('^\((\d+),(\d+)\):\(\d+,\d+,(\d+),\d+,(\d+)\)$')
-        self.open('/proc/stat')
-        self.cols = 2
-
-    def discover(self, *objlist):
-        ret = []
-        for l in self.splitlines(':'):
-            if len(l) < 3: continue
-            name = l[0]
-            if name != 'disk_io': continue
-            for pair in line.split()[1:]:
-                m = self.regexp.match(pair)
-                if not m: continue
-                l = m.groups()
-                if len(l) < 4: continue
-                name = dev(int(l[0]), int(l[1]))
-                ret.append(name)
-            break
-        for item in objlist: ret.append(item)
-        if not ret:
-            raise Exception("No suitable block devices found to monitor")
-        return ret
-
-    def vars(self):
-        ret = []
-        if op.disklist:
-            varlist = op.disklist
-        elif not op.full:
-            varlist = ('total',)
-        else:
-            varlist = []
-            for name in self.discover:
-                if self.diskfilter.match(name): continue
-                varlist.append(name)
-#           if len(varlist) > 2: varlist = varlist[0:2]
-            varlist.sort()
-        for name in varlist:
-            if name in self.discover + ['total'] or name in op.diskset:
-                ret.append(name)
-        return ret
-
-    def name(self):
-        return ['dsk/'+name for name in self.vars]
-
-    def extract(self):
-        for name in self.vars: self.set2[name] = (0, 0)
-        for line in self.splitlines(':'):
-            if len(l) < 3: continue
-            name = l[0]
-            if name != 'disk_io': continue
-            for pair in line.split()[1:]:
-                m = self.regexp.match(pair)
-                if not m: continue
-                l = m.groups()
-                if len(l) < 4: continue
-                name = dev(int(l[0]), int(l[1]))
-                if not self.diskfilter.match(name):
-                    self.set2['total'] = ( self.set2['total'][0] + int(l[2]), self.set2['total'][1] + int(l[3]) )
-                if name in self.vars and name != 'total':
-                    self.set2[name] = ( self.set2[name][0] + int(l[2]), self.set2[name][1] + int(l[3]) )
-                for diskset in self.vars:
-                    if diskset in op.diskset:
-                        for disk in op.diskset[diskset]:
-                            if fnmatch.fnmatch(name, disk):
-                                self.set2[diskset] = ( self.set2[diskset][0] + int(l[2]), self.set2[diskset][1] + int(l[3]) )
-            break
 
         for name in self.set2:
             self.val[name] = list(map(lambda x, y: (y - x) * 512.0 / elapsed, self.set1[name], self.set2[name]))
@@ -1533,23 +1308,6 @@ class dstat_swap(dstat):
             self.val[name] = ( int(l[3]) * 1024.0, (int(l[2]) - int(l[3])) * 1024.0 )
             self.val['total'] = ( self.val['total'][0] + self.val[name][0], self.val['total'][1] + self.val[name][1])
 
-class dstat_swap_old(dstat):
-    def __init__(self):
-        self.name = 'swap'
-        self.nick = ('used', 'free')
-        self.vars = ('SwapUsed', 'SwapFree')
-        self.type = 'd'
-        self.open('/proc/meminfo')
-
-    def extract(self):
-        for l in self.splitlines():
-            if len(l) < 2: continue
-            name = l[0].split(':')[0]
-            if name in self.vars + ('SwapTotal',):
-                self.val[name] = int(l[1]) * 1024.0
-
-        self.val['SwapUsed'] = self.val['SwapTotal'] - self.val['SwapFree']
-
 class dstat_sys(dstat):
     def __init__(self):
         self.name = 'system'
@@ -1829,7 +1587,7 @@ def set_theme():
 def ticks():
     "Return the number of 'ticks' since bootup"
     try:
-        for line in open('/proc/uptime', 'r', 0).readlines():
+        for line in open('/proc/uptime', 'r').readlines():
             l = line.split()
             if len(l) < 2: continue
             return float(l[0])
@@ -2618,7 +2376,6 @@ def main():
                     o = globals()[pluginfile]()
                     o.check()
                     o.prepare()
-#                print o.__module__
             except Exception as e:
                 if mod == mods[-1]:
                     print('Module %s failed to load. (%s)' % (pluginfile, e), file=sys.stderr)
@@ -2626,7 +2383,6 @@ def main():
                     print('Module %s failed to load, trying another. (%s)' % (pluginfile, e), file=sys.stderr)
                 if op.debug >= 3:
                     raise
-#                tb = sys.exc_info()[2]
                 continue
             except:
                 print('Module %s caused unknown exception' % pluginfile, file=sys.stderr)
