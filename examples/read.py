@@ -14,30 +14,30 @@ clear = dstat.ansi['reset']
 dstat.tick = dstat.ticks()
 
 c = dstat.dstat_cpu()
-print c.title() + '\n' + c.subtitle()
+print(c.title() + '\n' + c.subtitle())
 c.extract()
-print c.show(), clear
-print 'Percentage:', c.val['total']
-print 'Raw:', c.cn2['total']
-print
+print(c.show(), clear)
+print('Percentage:', c.val['total'])
+print('Raw:', c.cn2['total'])
+print()
 
 m = dstat.dstat_mem()
-print m.title() + '\n' + m.subtitle()
+print(m.title() + '\n' + m.subtitle())
 m.extract()
-print m.show(), clear
-print 'Raw:', m.val
-print
+print(m.show(), clear)
+print('Raw:', m.val)
+print()
 
 l = dstat.dstat_load()
-print l.title() + '\n' + l.subtitle()
+print(l.title() + '\n' + l.subtitle())
 l.extract()
-print l.show(), clear
-print 'Raw:', l.val
-print
+print(l.show(), clear)
+print('Raw:', l.val)
+print()
 
 d = dstat.dstat_disk()
-print d.title() + '\n' + d.subtitle()
+print(d.title() + '\n' + d.subtitle())
 d.extract()
-print d.show(), clear
-print 'Raw:', d.val['total']
-print
+print(d.show(), clear)
+print('Raw:', d.val['total'])
+print()

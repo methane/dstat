@@ -13,8 +13,8 @@ def readpipe(file, tmout = 0.001):
 def dpopen(cmd):
     "Open a pipe for reuse, if already opened, return pipes"
     global pipes
-    if 'pipes' not in globals().keys(): pipes = {}
-    if cmd not in pipes.keys():
+    if 'pipes' not in list(globals().keys()): pipes = {}
+    if cmd not in list(pipes.keys()):
         try:
             import subprocess
             p = subprocess.Popen(cmd, shell=False, bufsize=0, close_fds=True,
@@ -40,9 +40,9 @@ if __name__ == '__main__':
 #            stdin.write('io_s\n')
             stdin.write('cat /proc/stat\n')
             for line in readpipe(stdout):
-                print line
+                print(line)
 
-    except KeyboardInterrupt, e:
-        print
+    except KeyboardInterrupt as e:
+        print()
 
 # vim:ts=4:sw=4

@@ -29,4 +29,4 @@ devices = (
 )
 
 for maj, min, device in devices:
-    print device, '->', dstat.dev(maj, min)
+    print(device, '->', dstat.dev(maj, min))

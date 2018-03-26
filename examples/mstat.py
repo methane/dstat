@@ -23,7 +23,7 @@ dstat.starttime = time.time()
 dstat.tick = dstat.ticks()
 for o in (dstat.dstat_epoch(), dstat.dstat_cpu(), dstat.dstat_mem(), dstat.dstat_load(), dstat.dstat_disk(), dstat.dstat_sys()):
     try: o.check()
-    except Exception, e: print e
+    except Exception as e: print(e)
     else: stats.append(o)
 
 ### Make time stats sub-second
@@ -34,7 +34,7 @@ title = subtitle = ''
 for o in stats:
     title = title + '  ' + o.title()
     subtitle = subtitle + '  ' + o.subtitle()
-print '\n' + title + '\n' + subtitle
+print('\n' + title + '\n' + subtitle)
 
 ### Print stats
 for dstat.update in range(count):
@@ -42,7 +42,7 @@ for dstat.update in range(count):
     for o in stats:
         o.extract()
         line = line + '  ' + o.show()
-    print line + dstat.ansi['reset']
+    print(line + dstat.ansi['reset'])
     if dstat.update != count-1: time.sleep(delay)
     dstat.tick = 1
-print dstat.ansi['reset']
+print(dstat.ansi['reset'])
