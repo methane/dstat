@@ -410,14 +410,14 @@ class dstat:
 
     def colwidth(self):
         "Return column width"
-        if isinstance(self.name, bytes):
+        if isinstance(self.name, str):
             return self.width
         else:
             return len(self.nick) * self.width + len(self.nick) - 1
 
     def title(self):
         ret = theme['title']
-        if isinstance(self.name, bytes):
+        if isinstance(self.name, str):
             width = self.statwidth()
             return ret + self.name[0:width].center(width).replace(' ', '-') + theme['default']
         for i, name in enumerate(self.name):
@@ -432,7 +432,7 @@ class dstat:
 
     def subtitle(self):
         ret = ''
-        if isinstance(self.name, bytes):
+        if isinstance(self.name, str):
             for i, nick in enumerate(self.nick):
                 ret = ret + theme['subtitle'] + nick[0:self.width].center(self.width) + theme['default']
                 if i + 1 != len(self.nick): ret = ret + char['space']
@@ -446,7 +446,7 @@ class dstat:
             return ret
 
     def csvtitle(self):
-        if isinstance(self.name, bytes):
+        if isinstance(self.name, str):
             return '"' + self.name + '"' + char['sep'] * (len(self.nick) - 1)
         else:
             ret = ''
@@ -457,7 +457,7 @@ class dstat:
 
     def csvsubtitle(self):
         ret = ''
-        if isinstance(self.name, bytes):
+        if isinstance(self.name, str):
             for i, nick in enumerate(self.nick):
                 ret = ret + '"' + nick + '"'
                 if i + 1 != len(self.nick): ret = ret + char['sep']
@@ -538,7 +538,7 @@ class dstat:
                     line = line + printcsv(val)
                     if j + 1 != len(self.val[name]):
                         line = line + char['sep']
-            elif isinstance(self.val[name], bytes):
+            elif isinstance(self.val[name], str):
                 line = line + self.val[name]
             else:
                 line = line + printcsv(self.val[name])
@@ -1853,11 +1853,10 @@ def dopen(filename):
     global fds
     if not os.path.exists(filename):
         raise Exception('File %s does not exist' % filename)
-#        return None
     if 'fds' not in globals():
         fds = {}
-    if file not in fds:
-        fds[filename] = open(filename, 'r', 0)
+    if filename not in fds:
+        fds[filename] = open(filename, 'r')
     else:
         fds[filename].seek(0)
     return fds[filename]
@@ -2609,26 +2608,14 @@ def main():
                     ### TODO: Would using .pyc help with anything ?
                     ### Try loading python plugin
                     if description[0] in ('.py', ):
-                        exec(compile(open(pathname).read(), pathname, 'exec'))
-                        exec('o = dstat_plugin(); del(dstat_plugin)')
+                        g = globals()
+                        exec(compile(open(pathname).read(), pathname, 'exec'), g)
+                        o = g.pop('dstat_plugin')()
                         o.filename = pluginfile
                         o.check()
                         o.prepare()
-
-                    ### Try loading C plugin (not functional yet)
-                    elif description[0] == '.so':
-                        exec('import %s' % pluginfile)
-                        exec('o = %s.new()' % pluginfile)
-                        o.check()
-                        o.prepare()
-#                        print dir(o)
-#                        print o.__module__
-#                        print o.name
-                    else:
-                        print('Module %s is of unknown type.' % pluginfile, file=sys.stderr)
-
                 else:
-                    exec('o = %s()' % pluginfile)
+                    o = globals()[pluginfile]()
                     o.check()
                     o.prepare()
 #                print o.__module__
