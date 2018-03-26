@@ -1849,7 +1849,7 @@ def cprint(var, type = 'f', width = 4, scale = 1000):
         width = width - 1
 
     ### If this is a negative value, return a dash
-    if var < 0:
+    if isinstance(var, (int, float)) and var < 0:
         if unit:
             return theme['error'] + '-'.rjust(width) + char['space'] + theme['default']
         else:
