@@ -14,7 +14,7 @@ class dstat_plugin(dstat):
             global utmp
             import utmp
         except:
-            raise Exception, 'Needs python-utmp module'
+            raise Exception('Needs python-utmp module')
 
     def extract(self):
         for name in self.vars: self.val[name] = 0
